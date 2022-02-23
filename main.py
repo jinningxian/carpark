@@ -1,5 +1,4 @@
-
-from ast import dump
+import requests
 import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
@@ -88,7 +87,7 @@ def logIn():
     return {"Status": "Unsuccess", "Token": "None"}, 401
     
     
-#password 123456
+
 @app.route("/getPersonalInfo")
 def getInfo():
     if 'token' in request.headers:
@@ -116,7 +115,23 @@ def getInfo():
     return {"Access": "Access Denied, Unauthorized"}, 401
     
 
+@app.route("/getCarparkAvailability")
+def getCarParkAvailability():
+    if 'token' in request.headers:
+        try:
+            token = request.headers['token']
+            info = dict(jwt.decode(token, "carpark", algorithms=["HS256"]))
+            if(int(datetime.datetime.utcnow().timestamp()) > info["exp"]):
+                return {"Access": "Access Denied, Token expired"}, 401
+            try:
+                return requests.get('https://api.data.gov.sg/v1/transport/carpark-availability').json(), 200
+            except Exception:
+                 return {"Access": "Access Unsuccessfuly, Server error"}, 500
+            
+        except Exception:
+            return {"Access": "Access Denied, Token Invalid"}, 401
+    return {"Access": "Access Denied, Unauthorized"}, 401
 
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
