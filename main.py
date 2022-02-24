@@ -1,6 +1,6 @@
 import requests
 import datetime
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from flask_cors import CORS
 import hashlib
 import mysql.connector
@@ -9,7 +9,7 @@ import jwt
 
 app = Flask(__name__)
 
-
+#need to configure based on your own machine 
 mydb = mysql.connector.connect(
   host="localhost",
   user="root",
@@ -79,7 +79,7 @@ def logIn():
             token_generate = jwt.encode(
                 {"Username": email, 
                 "userVerify": True, 
-                'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, 
+                'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},  #the token will valid for 30 mins only 
                 key='carpark', 
                 algorithm="HS256")
             return {"Status": "Success", "Token": token_generate}, 200
@@ -102,36 +102,45 @@ def getInfo():
                 for userInfo in allUserInfo:
                     if userInfo[0] == info["Username"]:
                         user = User(userInfo[0], userInfo[1], userInfo[2], userInfo[3], userInfo[4])
-                        return {"Access": "Access Allowed","Detail": 
-                        {
-                            "Email": user.json()
-                        }}, 200
+                        return {"Access": "Access Allowed",
+                        "Detail": 
+                            {
+                                "Email": user.json()
+                            }}, 200
                 return {"Access": "Access Allowed","Detail":"No Information Found"}, 200
             except Exception:
                  return {"Access": "Access Unsuccessfuly, Server error"}, 500
             
         except Exception:
             return {"Access": "Access Denied, Token Invalid"}, 401
-    return {"Access": "Access Denied, Unauthorized"}, 401
+    return {"Access": "Access Denied, Token is missing"}, 401
     
 
 @app.route("/getCarparkAvailability")
 def getCarParkAvailability():
+    crrDateTime = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
     if 'token' in request.headers:
         try:
             token = request.headers['token']
             info = dict(jwt.decode(token, "carpark", algorithms=["HS256"]))
             if(int(datetime.datetime.utcnow().timestamp()) > info["exp"]):
-                return {"Access": "Access Denied, Token expired"}, 401
+                return {"Access": "Access Denied, Token expired", "RequestTime": crrDateTime,}, 401
             try:
-                return requests.get('https://api.data.gov.sg/v1/transport/carpark-availability').json(), 200
+                link = 'https://api.data.gov.sg/v1/transport/carpark-availability?date_time='+crrDateTime
+                return {
+                    "Access": "Access Allowed",
+                    "RequestTime": crrDateTime,
+                    "Carpark": requests.get(link).json()
+                }, 200
             except Exception:
-                 return {"Access": "Access Unsuccessfuly, Server error"}, 500
+                 return {"Access": "Access Unsuccessfuly, Server error", "RequestTime": crrDateTime}, 500
             
         except Exception:
-            return {"Access": "Access Denied, Token Invalid"}, 401
-    return {"Access": "Access Denied, Unauthorized"}, 401
+            return {"Access": "Access Denied, Token Invalid", "RequestTime": crrDateTime,}, 401
+    return {"Access": "Access Denied, Token is missing", "RequestTime": crrDateTime,}, 401
 
-
+#when request for /getCarparkAvailability and /getPersonalInfo
+#developer should add token in the header 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
