@@ -118,7 +118,7 @@ def getInfo():
 
 @app.route("/getCarparkAvailability")
 def getCarParkAvailability():
-    crrDateTime = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    crrDateTime = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     if 'token' in request.headers:
         try:
             token = request.headers['token']
